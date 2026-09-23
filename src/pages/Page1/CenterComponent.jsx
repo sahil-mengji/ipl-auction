@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import PlayerCard, { PlayerHero, PlayerInfoPanel } from "./PlayerCard";
+import PlayerCard, { PlayerHero } from "./PlayerCard";
 import LeftComponent from "./LeftComponent";
 import Overview from "./Overview";
 import MetalButton from "../../components/broadcast/MetalButton";
@@ -11,6 +11,7 @@ import { fetchTeamsWithSquads } from "../../utils/teamswithplayers";
 import { fetchUnsoldPlayers } from "../../utils/getUnSoldPlayers";
 import { updatePurseOfTeam } from "../../utils/updateTeam";
 import AuctionShell from "../../components/AuctionShell";
+import CurrentBidWidget from "../../components/CurrentBidWidget";
 
 const CenterComponent = ({ initteamlist, initplayersList }) => {
   const [isPlayerSold, setIsPlayerSold] = useState(false);
@@ -19,6 +20,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
   const [currentBidder, setCurrentBidder] = useState(null);
   const [currentBidderId, setCurrentBidderId] = useState(0);
   const [currentBid, setCurrentBid] = useState(0);
+  const [bidHistory, setBidHistory] = useState([]);
   const [playersList, setPlayersList] = useState(initplayersList);
   const [teamsList, setTeamsList] = useState(initteamlist);
   useEffect(() => {
@@ -31,6 +33,21 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
   useEffect(() => {
     setTeamsList(initteamlist);
   }, [initteamlist]);
+
+  // Local bid history for the widget: reset on a new lot, append on each bid.
+  const activePlayerId = playersList[0]?.id ?? null;
+  useEffect(() => {
+    setBidHistory([]);
+  }, [activePlayerId]);
+  useEffect(() => {
+    if (currentBid > 0 && currentBidder) {
+      setBidHistory((h) =>
+        h.length > 0 && h[h.length - 1].amount === currentBid
+          ? h
+          : [...h, { amount: currentBid, teamName: currentBidder }],
+      );
+    }
+  }, [currentBid, currentBidder]);
   const getTeamAndPlayers = async () => {
     fetchUnsoldPlayers().then((players) => {
       setPlayersList(players);
@@ -67,6 +84,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
     setShowPlayerCard(false);
     setIsPlayerSold(false);
     setCurrentBid(0);
+    setBidHistory([]);
     setCurrentBidderId(0);
     setCurrentBidder(null);
     await getTeamAndPlayers();
@@ -79,6 +97,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
       console.error("Error in marking as unsold:", error.message);
     }
     setCurrentBid(0);
+    setBidHistory([]);
     setCurrentBidderId(0);
     setCurrentBidder(null);
     await getTeamAndPlayers();
@@ -177,23 +196,20 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
     </>
   );
 
-  const rightPane = (
-    <>
-      {playersList.length > 0 && (
-        <PlayerInfoPanel
-          player={playersList[0]}
-          currentBid={currentBid}
-          showPlayerCard={showPlayerCard}
-          hideStats
-        />
-      )}
-    </>
-  );
+  // Right column stays empty on classic: bid/price live in the top-right
+  // widget and the docked ticket instead.
+  const rightPane = null;
 
   return (
     <div className={`min-h-screen bg-[#193153]  text-white`}>
       {!isPlayerSold && !showPlayerCard && (
-        <AuctionShell
+        <>
+          <CurrentBidWidget
+            bid={currentBid}
+            team={teamsList.find((t) => (t.name ?? t.team_name) === currentBidder) ?? null}
+            recentBids={bidHistory.slice(-4, -1).reverse()}
+          />
+          <AuctionShell
           left={
             <>
               <LeftComponent />
@@ -218,7 +234,8 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
               </Link>
             </>
           }
-        />
+          />
+        </>
       )}
 
       {showPlayerCard && (

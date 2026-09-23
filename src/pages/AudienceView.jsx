@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AuctionShell from "../components/AuctionShell";
+import CurrentBidWidget from "../components/CurrentBidWidget";
 import LeftComponent from "./Page1/LeftComponent";
 import Overview from "./Page1/Overview";
-import { PlayerHero, PlayerInfoPanel } from "./Page1/PlayerCard";
-import { getAuctionState } from "../utils/auctionApi";
+import { PlayerHero } from "./Page1/PlayerCard";
+import {
+  getAuctionLogs,
+  getAuctionState,
+  getTeams,
+  recentBidsBefore,
+} from "../utils/auctionApi";
 
 const POLL_MS = 2000;
 
@@ -14,15 +20,25 @@ const POLL_MS = 2000;
 // appears here within ~2s.
 export default function AudienceView() {
   const [state, setState] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [recentLogs, setRecentLogs] = useState([]);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    getTeams().then(setTeams).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
     const tick = async () => {
       try {
-        const s = await getAuctionState();
+        const [s, l] = await Promise.all([
+          getAuctionState(),
+          getAuctionLogs(10),
+        ]);
         if (!alive) return;
         setState(s);
+        setRecentLogs(l);
         setError(null);
       } catch (e) {
         if (alive) setError(e.message);
@@ -54,12 +70,23 @@ export default function AudienceView() {
     />
   );
 
-  const right = player ? (
-    <PlayerInfoPanel player={player} currentBid={state?.current_bid ?? 0} showPlayerCard={status === "SOLD"} hideStats />
-  ) : null;
+  // Right column stays empty on audience view: bid/price live in the
+  // top-right widget and the docked ticket instead.
+  const right = null;
 
   return (
-    <AuctionShell
+    <>
+      <CurrentBidWidget
+        bid={state?.current_bid ?? 0}
+        team={state?.bidding_team ?? null}
+        recentBids={recentBidsBefore(
+          recentLogs,
+          teams,
+          state?.player?.id,
+          state?.current_bid,
+        )}
+      />
+      <AuctionShell
       title="IPL MOCK AUCTION — LIVE"
       left={<><Overview /><LeftComponent /></>}
       center={center}
@@ -78,6 +105,7 @@ export default function AudienceView() {
           </Link>
         </>
       }
-    />
+      />
+    </>
   );
 }

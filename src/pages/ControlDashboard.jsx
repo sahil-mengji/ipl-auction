@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AuctionShell from "../components/AuctionShell";
+import CurrentBidWidget from "../components/CurrentBidWidget";
 import LeftComponent from "./Page1/LeftComponent";
 import Overview from "./Page1/Overview";
 import { PlayerHero, PlayerInfoPanel } from "./Page1/PlayerCard";
@@ -15,6 +16,7 @@ import {
   markLotUnsold,
   nextLot,
   placeBid,
+  recentBidsBefore,
   resetSale,
   startLot,
 } from "../utils/auctionApi";
@@ -36,12 +38,18 @@ export default function ControlDashboard() {
   const [notice, setNotice] = useState(null);
   const [customAmount, setCustomAmount] = useState("");
   const [customTeam, setCustomTeam] = useState("");
+  const [recentLogs, setRecentLogs] = useState([]);
 
   const refresh = useCallback(async () => {
     try {
-      const [s, t] = await Promise.all([getAuctionState(), getTeams()]);
+      const [s, t, l] = await Promise.all([
+        getAuctionState(),
+        getTeams(),
+        getAuctionLogs(10),
+      ]);
       setState(s);
       setTeams(t);
+      setRecentLogs(l);
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -153,6 +161,16 @@ export default function ControlDashboard() {
 
   return (
     <div className="min-h-screen bg-[#193153] text-white">
+      <CurrentBidWidget
+        bid={state?.current_bid ?? 0}
+        team={state?.bidding_team ?? null}
+        recentBids={recentBidsBefore(
+          recentLogs,
+          teams,
+          state?.player?.id,
+          state?.current_bid,
+        )}
+      />
       <AuctionShell
         title="AUCTION CONTROL"
         left={<><Overview /><LeftComponent /></>}

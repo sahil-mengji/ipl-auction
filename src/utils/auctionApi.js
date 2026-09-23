@@ -60,6 +60,28 @@ export const getTeams = () => fetchBackendTeams();
 
 export const getTeamsWithSquads = () => fetchBackendTeamsWithSquads();
 
+// Latest BID log entries for one lot, excluding the current bid itself —
+// newest first, returned as [{ amount, teamName }] for the bid widget.
+// Logs arrive newest-first from the server.
+export const recentBidsBefore = (logs = [], teams = [], playerId, currentBid, n = 3) => {
+  const cur = Number(currentBid ?? 0);
+  return (logs ?? [])
+    .filter(
+      (l) =>
+        l?.type === "BID" &&
+        (playerId == null || l.player_id === playerId) &&
+        Number(l.amount) < cur,
+    )
+    .slice(0, n)
+    .map((l) => ({
+      amount: Number(l.amount),
+      teamName:
+        teams.find((t) => t.id === l.team_id)?.team_name ??
+        teams.find((t) => t.id === l.team_id)?.name ??
+        "",
+    }));
+};
+
 // Price unit is Lakh in the DB (100 = 1 Crore) — same helper used across screens.
 export function formatPrice(price) {
   const n = Number(price ?? 0);

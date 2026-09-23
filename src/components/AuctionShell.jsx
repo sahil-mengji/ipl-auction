@@ -28,7 +28,7 @@ export default function AuctionShell({
         className="w-40 absolute z-40 top-5 left-4"
       />
       {topRight && (
-        <div className="absolute z-40 top-4 right-4 flex gap-2">{topRight}</div>
+        <div className="absolute z-40 bottom-4 left-4 flex gap-2">{topRight}</div>
       )}
       <div className="relative z-10 ">
         <h1
