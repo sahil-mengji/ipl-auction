@@ -1,0 +1,81 @@
+// Prisma schema for the IPL Auction backend.
+// Tables mirror the Supabase tables `Teams` and `CricketPlayers`
+// so the existing frontend works unchanged.
+//
+// soldToTeamId semantics (kept from Supabase):
+//   0  = unsold / still in auction pool
+//  -1  = explicitly marked unsold
+//  >0  = sold to Team with that id
+// No FK constraint is used on purpose so 0/-1 stay valid.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  teamName  String   @map("team_name")
+  purse     Int      @default(0)
+  teamLogo  String?  @map("team_logo")
+  textColor String?  @map("text_color")
+  color1    String?
+  color2    String?
+
+  @@map("Teams")
+}
+
+model Player {
+  id            Int       @id @default(autoincrement())
+  playerName    String    @map("player_name")
+  playerImage   String?   @map("player_image")
+  basePrice     Int       @default(0) @map("base_price")
+  finalPrice    Int       @default(0) @map("final_price")
+  soldToTeamId  Int       @default(0) @map("sold_to_team_id")
+  soldToTeam    String?   @map("sold_to_team")
+  timeOfSelling DateTime? @map("time_of_selling")
+  category      String?
+  isOverseas    Boolean   @default(false) @map("is_overseas")
+  matches       Int       @default(0)
+  runs          Int       @default(0)
+  batAvg        Float?    @map("bat_avg")
+  sr            Float?
+  catches       Int       @default(0)
+  stumpings     Int       @default(0)
+  wickets       Int       @default(0)
+  bowlAvg       Float?    @map("bowl_avg")
+  eco           Float?
+
+  @@map("CricketPlayers")
+}
+
+// Live auction state (singleton row, id = 1). Shared by the control
+// dashboard (writer) and the audience view (reader) so both screens
+// stay in sync through the backend instead of local component state.
+model AuctionState {
+  id                Int      @id @default(1)
+  status            String   @default("IDLE") // IDLE | BIDDING | SOLD
+  currentPlayerId   Int?     @map("current_player_id")
+  currentBid        Int      @default(0) @map("current_bid")
+  currentBidderTeamId Int    @default(0) @map("current_bidder_team_id")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("AuctionState")
+}
+
+// Append-only event log for the dashboard's Logs view.
+model AuctionLog {
+  id        Int      @id @default(autoincrement())
+  type      String   // BID | SOLD | UNSOLD | RESET_SALE | NEXT | START
+  playerId  Int?     @map("player_id")
+  teamId    Int?     @map("team_id")
+  amount    Int?
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("AuctionLog")
+}

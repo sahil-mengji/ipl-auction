@@ -1,54 +1,55 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchTeamsWithSquads } from "../../utils/teamswithplayers";
+import TrapHeader from "../../components/broadcast/TrapHeader";
 
 const Overview = () => {
-
   const [teams, setTeams] = useState([]);
   const getAllTeamswithplayers = async () => {
     fetchTeamsWithSquads().then((teamslist) => {
       setTeams(teamslist);
     });
-  }
+  };
 
   function formatPriceInLakhs(price) {
-
-    if (price >= 100) {
-      // Convert to crore
-      const crore = (price / 100).toFixed(2); // 2 decimal places
-      return `${Number(crore).toLocaleString('en-IN')} Crore`;
-    } else {
-      // Keep it in lakh
-      return `${Number(price).toLocaleString('en-IN')} Lakh`;
-      // return price;
+    const n = Number(price ?? 0);
+    if (Number.isNaN(n)) return "—";
+    if (n >= 100) {
+      const crore = (n / 100).toFixed(2);
+      return `${Number(crore).toLocaleString("en-IN")} Crore`;
     }
+    return `${Number(n).toLocaleString("en-IN")} Lakh`;
   }
 
   useEffect(() => {
     getAllTeamswithplayers();
-  }, [])
+  }, []);
   return (
-    <div className="w-11/12 mx-5 max-w-4xl bg-white/10 hover:bg-white/5 cursor-default hover:scale-105 transition backdrop-blur-md rounded-lg shadow-lg border border-white/20 p-6">
-      <h2 className="text-2xl font-bold text-white text-center">Team Overview</h2>
-      <table className="table-auto w-full text-left  border-0">
-        <thead className="">
-          <tr>
-            <th className="p-2 ">ID</th>
-            <th className="p-2 ">Team Name</th>
-            <th className="p-2 text-center">No. of Players</th>
-            <th className="p-2 text-right">Funds Remaining</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team, idx) => (
-            <tr key={idx} className="hover:bg-white/5 rounded-lg">
-              <td className="p-2">{team.team_id}</td>
-              <td className="p-2">{team.name}</td>
-              <td className="p-2 text-center">{team.playerCount}</td>
-              <td className="p-2 text-right">₹{formatPriceInLakhs(team.purse)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className=" pb-8 pt-2  -translate-x-20  pr-5">
+      <div className="translate-x-5">
+        <TrapHeader>Team overview</TrapHeader>
+      </div>
+      <div className="bc-card-wrap pr-15  pl-5 ">
+        <div className="bc-card-slant py-5 pr-10 overflow-visible pl-8">
+          <div className="space-y-2 overflow-visible">
+            {teams.map((team, idx) => (
+              <div key={idx} className="bc-team-row px-3 py-2">
+                <div className="flex items-center text-sm">
+                  <span className="w-8 font-extrabold text-white/50">
+                    {team.team_id}
+                  </span>
+                  <span className="flex-1 font-bold">{team.name}</span>
+                  <span className="w-14 text-center font-extrabold">
+                    {team.playerCount}
+                  </span>
+                  <span className="w-28 text-right font-extrabold bc-gold-text">
+                    ₹{formatPriceInLakhs(team.purse)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -11,6 +11,8 @@ import { getTeamFromTeamID } from './utils/getTeamfromTeamId';
 import { fetchUnsoldPlayers } from './utils/getUnSoldPlayers';
 import TimerPage from './pages/TimerPage';
 import CricketPlayersTable from './pages/Page1/players_test';
+import AudienceView from './pages/AudienceView';
+import ControlDashboard from './pages/ControlDashboard';
 
 function App() {
   const [players, setPlayers] = useState([]);
@@ -53,6 +55,8 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<CenterComponent initteamlist={teamswithsquad} initplayersList={players} />} />
+        <Route path="/live" element={<AudienceView />} />
+        <Route path="/control" element={<ControlDashboard />} />
         <Route path="/teamswithsquad" element={<TeamsWithCompactDesign />} />
         <Route path="/break" element={<TimerPage />} />
         <Route path="/players" element={<CricketPlayersTable />} />

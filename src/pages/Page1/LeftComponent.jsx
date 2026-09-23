@@ -1,22 +1,18 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
-import { fetchExpensivePlayer } from '../../utils/expensivePlayer.js';
-import { fetchPrevPlayer } from '../../utils/previousPlayer.js';
-import { getTeamFromTeamID } from '../../utils/getTeamfromTeamId.js';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-
+import { useEffect, useState } from "react";
+import { fetchExpensivePlayer } from "../../utils/expensivePlayer.js";
+import { fetchPrevPlayer } from "../../utils/previousPlayer.js";
+import { getTeamFromTeamID } from "../../utils/getTeamfromTeamId.js";
+import TrapHeader from "../../components/broadcast/TrapHeader";
 
 const LeftComponent = () => {
-
   function formatPriceInLakhs(price) {
-
     if (price >= 100) {
       // Convert to crore
       const crore = (price / 100).toFixed(2); // 2 decimal places
-      return `${Number(crore).toLocaleString('en-IN')} Crore`;
+      return `${Number(crore).toLocaleString("en-IN")} Crore`;
     } else {
       // Keep it in lakh
-      return `${Number(price).toLocaleString('en-IN')} Lakh`;
+      return `${Number(price).toLocaleString("en-IN")} Lakh`;
       // return price;
     }
   }
@@ -45,7 +41,9 @@ const LeftComponent = () => {
   useEffect(() => {
     if (mostExpensivePlayer1.length > 0) {
       const fetchTeam = async () => {
-        const teamData = await getTeamFromTeamID(mostExpensivePlayer1[0].sold_to_team_id);
+        const teamData = await getTeamFromTeamID(
+          mostExpensivePlayer1[0].sold_to_team_id,
+        );
         setMostExpensiveTeam(teamData[0]); // Assuming teamData is an array
       };
       fetchTeam();
@@ -55,7 +53,9 @@ const LeftComponent = () => {
   useEffect(() => {
     if (lastSoldPlayer1 && lastSoldPlayer1.length > 0) {
       const fetchTeam = async () => {
-        const teamData = await getTeamFromTeamID(lastSoldPlayer1[0].sold_to_team_id);
+        const teamData = await getTeamFromTeamID(
+          lastSoldPlayer1[0].sold_to_team_id,
+        );
         setLastSoldTeam(teamData[0]); // Assuming teamData is an array
       };
       fetchTeam();
@@ -63,108 +63,61 @@ const LeftComponent = () => {
   }, [lastSoldPlayer1]);
 
   return (
-    <div className="p-8 font-sans space-y-6">
+    <div className="pb-8 pt-2 -translate-x-20 pr-5 space-y-3">
       {/* Most Expensive Player */}
-      {mostExpensiveTeam?.team_name && <div
-        className="flex flex-col mb-6 border-slate-1000 bg-white/5 hover:bg-white/0 cursor-default hover:scale-105 transition backdrop-blur-md rounded-lg shadow-lg border border-white/20 p-6n"
-      >
-        <div className='relative overflow-hidden isolate rounded-lg'>
-
-          {/* Heading */}
-          <div className="text-left text-xl font-semibold py-2 pb-1 px-4">
-            Most Expensive Player
+      {mostExpensiveTeam?.team_name && (
+        <div className="w-96 max-w-full">
+          <div className="translate-x-5">
+            <TrapHeader gold>Most expensive</TrapHeader>
           </div>
-
-          {/* Player Info */}
-          <div className="flex items-center">
-            {/* Player Image */}
-            {mostExpensivePlayer1.length > 0 ? (
-              <>
-                <div className="flex-shrink-0 p-4">
-                  <img
-                    src={mostExpensivePlayer1[0].player_image}
-                    alt={mostExpensivePlayer1[0].player_name}
-                    style={{ backgroundImage: `linear-gradient(to bottom right, #${mostExpensiveTeam?.color1}, #${mostExpensiveTeam?.color2}),url(${mostExpensiveTeam?.team_logo})`, backdropFilter: 'blur(25px) saturate(150%)' }}
-                    className="w-[100px] h-[100px] rounded-full border-2 border-white object-cover"
-                  />
+          <div className="bc-card-wrap pr-15 pl-20">
+            <div className="bc-card-slant py-4 pr-10 overflow-visible pl-8 relative">
+              {/* Player Details */}
+              <div className="relative z-10 min-w-0">
+                <h2 className="text-2xl font-extrabold bc-gold-text whitespace-nowrap overflow-hidden text-ellipsis">
+                  {mostExpensivePlayer1[0].player_name}
+                </h2>
+                <p className="text-base text-white/60 mt-1">
+                  {mostExpensiveTeam?.team_name || "Loading..."}
+                </p>
+                <div className="bc-para bc-para-gold px-4 py-1 mt-2 inline-block">
+                  <p className="text-xl font-extrabold">
+                    &#8377;{" "}
+                    {formatPriceInLakhs(mostExpensivePlayer1[0].final_price)}
+                  </p>
                 </div>
-
-                {/* Player Details */}
-                <div className="flex-grow p-4">
-                  <h2 className="text-[20px] font-bold">{mostExpensivePlayer1[0].player_name}</h2>
-                  <p className="text-[18px]">{mostExpensiveTeam?.team_name || 'Loading...'}</p>
-                  <p className="text-[18px]">&#8377; {formatPriceInLakhs(mostExpensivePlayer1[0].final_price)}</p>
-                </div>
-              </>
-            ) : (
-              //<p className="p-4 text-gray-400">Loading...</p>
-              <div className="flex items-center mr-10 mb-50 p-4">
-              <DotLottieReact
-                      src="https://lottie.host/e03cc549-83a8-4fd0-b662-7351abed847c/ziI4NFMwPL.lottie"
-                      loop
-                      autoplay
-                      style={{ width: "100px", height: "100px" }}
-                    />
-              <div className="flex flex-col gap-y-1">
-              <p className="p-1 text-white text-3xl">IPL Auction</p>
-              <p className="p-1 text-white text-lg">Starting Soon...</p>
               </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>}
+      )}
 
       {/* Last Sold Player */}
-      {lastSoldTeam?.team_name && <div
-        className="flex flex-col mb-6 border-slate-1000 bg-white/5 hover:bg-white/0 cursor-default hover:scale-105 transition backdrop-blur-md rounded-lg shadow-lg border border-white/20 p-6n"
-      >
-        <div className='relative overflow-hidden isolate rounded-lg'>
-          {/* Heading */}
-          <div className="text-left text-xl font-semibold py-2 px-4">
-            Last Sold Player
+      {lastSoldTeam?.team_name && (
+        <div className="w-96 max-w-full">
+          <div className="translate-x-5">
+            <TrapHeader>Last sold</TrapHeader>
           </div>
-
-          {/* Player Info */}
-          <div className="flex items-center">
-            {/* Player Image */}
-            {lastSoldPlayer1 ? (
-              <>
-                <div className="flex-shrink-0 p-4">
-                  <img
-
-                    style={{ backgroundImage: `linear-gradient(to bottom right, #${lastSoldTeam?.color1}, #${lastSoldTeam?.color2}), url(${lastSoldTeam?.team_logo})`, backdropFilter: 'blur(25px) saturate(150%)' }}
-                    src={lastSoldPlayer1[0].player_image}
-                    alt={lastSoldPlayer1[0].player_name}
-                    className="w-[100px] h-[100px] rounded-full border-2 border-white object-cover"
-                  />
+          <div className="bc-card-wrap pr-15 pl-20">
+            <div className="bc-card-slant py-4 pr-10 overflow-visible pl-8 relative">
+                <div className="relative z-10 min-w-0">
+                  <h2 className="text-3xl font-extrabold bc-emboss whitespace-nowrap overflow-hidden text-ellipsis">
+                    {lastSoldPlayer1[0].player_name}
+                  </h2>
+                  <p className="text-base text-white/60 mt-1">
+                    {lastSoldTeam?.team_name || "Loading..."}
+                  </p>
+                  <div className="bc-para px-4 py-1 mt-2 inline-block">
+                    <p className="text-xl font-extrabold bc-gold-text">
+                    &#8377;{" "}
+                    {formatPriceInLakhs(lastSoldPlayer1[0].final_price)}
+                  </p>
                 </div>
-
-                {/* Player Details */}
-                <div className="flex-grow p-4">
-                  <h2 className="text-[20px] font-bold">{lastSoldPlayer1[0].player_name}</h2>
-                  <p className="text-[18px]">{lastSoldTeam?.team_name || 'Loading...'}</p>
-                  <p className="text-[18px]">&#8377; {formatPriceInLakhs(lastSoldPlayer1[0].final_price)}</p>
-                </div>
-              </>
-            ) : (
-              //<p className="p-4 text-gray-400">Loading...</p>
-              <div className="flex items-center mr-10 mb-50 p-4">
-              <DotLottieReact
-                      src="https://lottie.host/e03cc549-83a8-4fd0-b662-7351abed847c/ziI4NFMwPL.lottie"
-                      loop
-                      autoplay
-                      style={{ width: "100px", height: "100px" }}
-                    />
-              <div className="flex flex-col gap-y-1">
-              <p className="p-1 text-white text-3xl">IPL Auction</p>
-              <p className="p-1 text-white text-lg">Starting Soon...</p>
               </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>}
+      )}
     </div>
   );
 };
