@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import teamsRouter from "./routes/teams.js";
 import playersRouter from "./routes/players.js";
@@ -55,6 +57,15 @@ app.use("/api/auction", auctionRouter);
 // 404 for unknown API routes
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: "Not found" });
+});
+
+// Static frontend (repo-root dist/, built by `npm run build`) + SPA fallback.
+// API + socket.io live on the same origin, so no CORS config is needed.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distDir = path.join(__dirname, "..", "..", "dist");
+app.use(express.static(distDir));
+app.get(/^\/(?!api).*/, (_req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
 // Central error handler — always JSON so the frontend can rely on shape

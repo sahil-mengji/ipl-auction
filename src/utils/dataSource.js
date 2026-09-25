@@ -1,10 +1,12 @@
 // Decides which data source the frontend utils use.
-// Backend-first: VITE_API_BASE_URL at build time, else localhost:4000.
-// Change the constant below (or the env var) to point elsewhere.
+// Same-origin by default (backend serves the built frontend), so the app
+// works wherever it is hosted with zero config. Overrides, in order:
+// VITE_API_BASE_URL at build time, else localhost:4000 in dev.
 
 const HARDCODED_DATA_SOURCE = "backend";
 const HARDCODED_API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : window.location.origin);
 
 export const getDataSource = () => HARDCODED_DATA_SOURCE;
 

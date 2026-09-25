@@ -1,0 +1,17 @@
+# Render blueprint: "New +" → "Blueprint" → select this repo.
+# Single service — Express serves the API, websockets AND the built frontend.
+# Create a Neon Postgres DATABASE_URL first and paste it when prompted.
+services:
+  - type: web
+    name: iplauction
+    runtime: node
+    region: oregon
+    rootDir: .
+    buildCommand: npm install && npm run build && npm --prefix server install && npx --prefix server prisma generate && npx --prefix server prisma migrate deploy
+    startCommand: npm --prefix server start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: DATABASE_URL
+        sync: false # paste your Neon connection string in the dashboard
