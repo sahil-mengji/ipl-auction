@@ -36,6 +36,9 @@ export const placeBid = async (teamId, amount) =>
 export const hammerSold = async () =>
   normalizeAuctionState(await backendFetch("/api/auction/sold", { method: "POST" }));
 
+export const undoLastBid = async () =>
+  normalizeAuctionState(await backendFetch("/api/auction/undo-bid", { method: "POST" }));
+
 export const markLotUnsold = async () =>
   normalizeAuctionState(await backendFetch("/api/auction/unsold", { method: "POST" }));
 
@@ -50,11 +53,40 @@ export const resetSale = async (playerId) =>
     })
   );
 
+export const nukeDatabase = async () =>
+  backendFetch("/api/auction/nuke", {
+    method: "POST",
+    body: JSON.stringify({ confirm: "NUKE" }),
+  });
+
 export const getAuctionLogs = async (limit = 100) =>
   (await backendFetch(`/api/auction/logs?limit=${encodeURIComponent(limit)}`)).map(normalizeLog);
 
+export const getHealthDb = async () => backendFetch("/api/health/db");
+
 export const getAuctionSales = async () =>
   (await backendFetch("/api/auction/sales")).map(normalizePlayer);
+
+export const getPlayers = async () =>
+  (await backendFetch("/api/players?status=all")).map(normalizePlayer);
+
+export const movePlayer = async (playerId, direction) =>
+  backendFetch("/api/auction/reorder", {
+    method: "POST",
+    body: JSON.stringify({ playerId, direction }),
+  });
+
+export const requeuePlayers = async (orderedIds) =>
+  backendFetch("/api/auction/requeue", {
+    method: "POST",
+    body: JSON.stringify({ orderedIds }),
+  });
+
+export const setPlayerStatus = async (playerId, status) =>
+  backendFetch("/api/auction/player-status", {
+    method: "POST",
+    body: JSON.stringify({ playerId, status }),
+  });
 
 export const getTeams = () => fetchBackendTeams();
 

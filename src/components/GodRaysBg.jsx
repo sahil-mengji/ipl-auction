@@ -25,7 +25,7 @@ export default function GodRaysBg() {
         offsetY={-0.38}
       />
       {/* readability veil so cards stay legible over the rays */}
-      <div className="absolute inset-0 bg-[#0a1730]/55" />
+      <div className="absolute inset-0 bc-veil" />
     </div>
   );
 }

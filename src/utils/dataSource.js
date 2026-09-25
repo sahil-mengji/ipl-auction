@@ -1,9 +1,10 @@
 // Decides which data source the frontend utils use.
-// HARDCODED — the app always uses the Express + Prisma + Postgres backend.
-// No `.env` setup needed. Change the constants below to point elsewhere.
+// Backend-first: VITE_API_BASE_URL at build time, else localhost:4000.
+// Change the constant below (or the env var) to point elsewhere.
 
 const HARDCODED_DATA_SOURCE = "backend";
-const HARDCODED_API_BASE_URL = "http://localhost:4000";
+const HARDCODED_API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 export const getDataSource = () => HARDCODED_DATA_SOURCE;
 

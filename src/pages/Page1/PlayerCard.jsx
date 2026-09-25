@@ -15,6 +15,66 @@ const roleIcons = {
   WK: "🧤",
 };
 
+// Display labels for the DB category values.
+const ROLE_TICKET = {
+  Batsman: {
+    label: "Batsman",
+    icon: "https://cdn-icons-png.flaticon.com/512/1454/1454437.png",
+  },
+  Bowler: {
+    label: "Bowler",
+    icon: "https://cdn-icons-png.flaticon.com/512/5140/5140352.png",
+  },
+  "Wicket Keeper": {
+    label: "Wicket Keeper",
+    icon: "https://cdn-icons-png.flaticon.com/512/13132/13132322.png",
+  },
+  "All Rounder": {
+    label: "All Rounder",
+    icon: "https://cdn-icons-png.flaticon.com/512/9097/9097536.png",
+  },
+};
+
+const isOverseas = (p) => p?.is_overseas ?? p?.isOverseas ?? false;
+
+// Crisp white airplane mark (inline SVG, never an emoji).
+const PlaneIcon = ({ className = "w-4 h-4" }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+  </svg>
+);
+
+// Role + overseas markers, each in its own little parallelogram with a
+// white icon. `center` for the standard hero, left-aligned under the ticket.
+function RoleTickets({ player, center = false }) {
+  const role = ROLE_TICKET[player?.category];
+  if (!role && !isOverseas(player)) return null;
+  return (
+    <div className={`flex gap-2 ${center ? "justify-center" : "justify-start"}`}>
+      {role && (
+        <div className="bc-para px-4 py-1.5">
+          <span className="flex items-center gap-2 text-2xl font-extrabold tracking-[0.15em] uppercase text-white">
+            <img
+              src={role.icon}
+              alt=""
+              className="w-8 h-8 brightness-0 invert"
+            />
+            {role.label}
+          </span>
+        </div>
+      )}
+      {isOverseas(player) && (
+        <div className="bc-para px-4 py-1.5">
+          <span className="flex items-center gap-2 text-2xl font-extrabold tracking-[0.15em] uppercase text-white">
+            <PlaneIcon className="w-8 h-8" />
+            Overseas
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function formatPriceInLakhs(price) {
   const n = Number(price ?? 0);
   if (Number.isNaN(n)) return "—";
@@ -108,9 +168,9 @@ export function PlayerHero({
             className={`absolute inset-x-3 z-10 ${docked ? "bottom-[7.5rem]" : "bottom-20"}`}
           >
             <h2 className="bc-hero-name text-center">{player.player_name}</h2>
-            <p className="text-center text-[11px] font-bold tracking-[0.35em] uppercase text-white/80 mt-1">
-              {player.category} {roleIcons[player.category] ?? ""}
-            </p>
+            <div className="mt-2 flex justify-center">
+              <RoleTickets player={player} center />
+            </div>
           </div>
         )}
       </div>
@@ -175,6 +235,9 @@ export function PlayerHero({
               <TrapHeader gold big mirror align="left" skewText>
                 {player.player_name}
               </TrapHeader>
+              <div className="mt-2 ml-1">
+                <RoleTickets player={player} />
+              </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {STAT_DEFS.filter(([, k]) => Number(player[k] ?? 0) !== 0).map(

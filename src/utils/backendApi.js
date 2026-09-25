@@ -34,6 +34,7 @@ export const normalizePlayer = (p) =>
         sold_to_team_id: p.soldToTeamId ?? p.sold_to_team_id ?? 0,
         sold_to_team: p.soldToTeam ?? p.sold_to_team ?? null,
         time_of_selling: p.timeOfSelling ?? p.time_of_selling ?? null,
+        auction_order: p.auctionOrder ?? p.auction_order ?? 0,
         category: p.category,
         is_overseas: p.isOverseas ?? p.is_overseas ?? false,
         matches: p.matches ?? 0,
@@ -74,6 +75,8 @@ export const normalizeAuctionState = (s) =>
         updated_at: s.updatedAt ?? s.updated_at ?? null,
         player: normalizePlayer(s.player ?? null),
         bidding_team: normalizeTeam(s.biddingTeam ?? s.bidding_team ?? null),
+        queue_cursor: s.queueCursor ?? s.queue_cursor ?? -1,
+        next_player: normalizePlayer(s.nextPlayer ?? s.next_player ?? null),
       };
 
 export const fetchBackendTeams = async () =>

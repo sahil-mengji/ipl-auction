@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
+import { broadcastInvalidate } from "../socket.js";
 
 const router = Router();
 
@@ -59,6 +60,7 @@ router.patch("/:id/purse", async (req, res, next) => {
       return res.status(400).json({ error: "`purse` must be a number" });
     }
     const team = await prisma.team.update({ where: { id }, data: { purse } });
+    broadcastInvalidate({ teams: true });
     res.json(team);
   } catch (err) {
     if (err?.code === "P2025") return res.status(404).json({ error: "Team not found" });

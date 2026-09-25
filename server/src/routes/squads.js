@@ -5,7 +5,7 @@ const router = Router();
 
 // GET /api/teams-with-squads — aggregated view (matches fetchTeamsWithSquads).
 // Response shape mirrors the frontend mapper:
-// [{ team_id, name, playerCount, purse, teamLogo, textColor, squad: [{name, role, isOverseas}], color1, color2 }]
+// [{ team_id, name, playerCount, purse, teamLogo, textColor, squad: [{id, name, role, isOverseas, price}], color1, color2 }]
 router.get("/", async (_req, res, next) => {
   try {
     const [teams, players] = await Promise.all([
@@ -23,9 +23,11 @@ router.get("/", async (_req, res, next) => {
           teamLogo: team.teamLogo,
           textColor: team.textColor,
           squad: squad.map((p) => ({
+            id: p.id,
             name: p.playerName,
             role: p.category,
             isOverseas: p.isOverseas,
+            price: p.finalPrice ?? 0,
           })),
           color1: team.color1,
           color2: team.color2,

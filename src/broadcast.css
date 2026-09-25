@@ -11,6 +11,216 @@
   --bc-chrome: #9fb0c7;
   --bc-steel: #3c4c68;
   --bc-steel-deep: #1b2947;
+
+  /* ---- themable dark-blue surfaces (gold is never themed) ---- */
+  --bc-panel-hi: #22345a;
+  --bc-panel-mid: #141f3a;
+  --bc-panel-lo: #0d1730;
+  --bc-trap-hi: #27467e;
+  --bc-trap-mid: #132747;
+  --bc-trap-lo: #0b1830;
+  --bc-para-hi: #2c4a82;
+  --bc-para-mid: #16294d;
+  --bc-para-lo: #0c1930;
+  --bc-stat-hi: #0e1a36;
+  --bc-stat-lo: #16264a;
+  --bc-row-bg: rgba(255, 255, 255, 0.05);
+  --bc-btn-hi: #3f6dbe;
+  --bc-btn-mid: #23417e;
+  --bc-btn-lo: #152a56;
+  --bc-btn-text: #ffffff;
+  --bc-line: 159, 176, 199; /* border color as RGB triplet */
+  --bc-shell: #193153;
+  --bc-veil: rgba(10, 23, 48, 0.55);
+}
+
+/* Ice theme: blackish gradient fills with #82e5fc-tone borders.
+   Gold stays exactly as-is. */
+[data-theme="ice"] {
+  --bc-panel-hi: rgba(13, 22, 32, 0.55);
+  --bc-panel-mid: rgba(7, 13, 21, 0.65);
+  --bc-panel-lo: rgba(3, 6, 11, 0.8);
+  --bc-trap-hi: rgba(14, 24, 36, 0.6);
+  --bc-trap-mid: rgba(8, 14, 22, 0.7);
+  --bc-trap-lo: rgba(3, 6, 11, 0.85);
+  --bc-para-hi: rgba(14, 24, 36, 0.6);
+  --bc-para-mid: rgba(8, 14, 22, 0.7);
+  --bc-para-lo: rgba(3, 6, 11, 0.85);
+  --bc-stat-hi: rgba(12, 20, 29, 0.6);
+  --bc-stat-lo: rgba(5, 10, 17, 0.8);
+  --bc-row-bg: rgba(0, 0, 0, 0.25);
+  --bc-btn-hi: rgba(20, 32, 44, 0.75);
+  --bc-btn-mid: rgba(10, 18, 26, 0.85);
+  --bc-btn-lo: rgba(4, 8, 13, 0.9);
+  --bc-btn-text: #ffffff;
+  --bc-line: 130, 229, 252;
+  --bc-shell: #04090f;
+  --bc-veil: rgba(3, 6, 11, 0.55);
+}
+
+/* Vertical marquee for the purchased-players rail: glides up, then back
+   down (alternate), pausing on hover. Content is duplicated once so the
+   -50% turn point lands exactly on the loop seam. */
+@keyframes bc-scroll-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+.bc-scroll-y {
+  animation: bc-scroll-y 30s linear infinite alternate;
+}
+.bc-scroll-y:hover {
+  animation-play-state: paused;
+}
+/* Soft fade at the top/bottom edges of the vertical rail window */
+.bc-mask-y {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+}
+
+/* Horizontal circular marquee: one row, loops seamlessly (content is
+   duplicated once so the -50% turn point lands on the loop seam). */
+@keyframes bc-scroll-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.bc-scroll-x {
+  animation: bc-scroll-x 20s linear infinite;
+}
+.bc-scroll-x:hover {
+  animation-play-state: paused;
+}
+/* Soft fade at the left/right edges of a horizontal marquee window */
+.bc-mask-x {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+
+/* Budget-graph entry: lines grow left-to-right, dots/labels fade in after */
+@keyframes bc-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.bc-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bc-draw 1.8s ease-out forwards;
+}
+@keyframes bc-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+.bc-fade-group {
+  opacity: 0;
+  animation: bc-fade-in 0.6s ease forwards;
+}
+
+/* Scrollable with a fully hidden scrollbar */
+.bc-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.bc-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Slim scrollbars for the independently-scrolling control columns */
+.bc-scroll-col {  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 211, 77, 0.45) transparent;
+}
+.bc-scroll-col::-webkit-scrollbar {
+  width: 8px;
+}
+.bc-scroll-col::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bc-scroll-col::-webkit-scrollbar-thumb {
+  background: rgba(255, 211, 77, 0.35);
+  border-radius: 8px;
+}
+.bc-scroll-col::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 211, 77, 0.6);
+}
+
+/* SOLD stamp slam on the audience screen: drops in huge, holds, lifts out */
+@keyframes bc-sold-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(2.6) rotate(-14deg);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1) rotate(-8deg);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1.02) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1) translateY(-30px) rotate(-8deg);
+  }
+}
+.bc-sold-stamp {
+  animation: bc-sold-stamp 2.6s ease forwards;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* Team spotlight swap on /break: quick slide-and-fade when the team changes */
+@keyframes bc-spotlight-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.bc-spotlight-enter {
+  animation: bc-spotlight-in 0.5s ease;
+}
+
+/* Thicker frames in the ice theme (gold accents keep their weight) */
+[data-theme="ice"] .bc-para,
+[data-theme="ice"] .bc-para-r,
+[data-theme="ice"] .bc-steel-panel,
+[data-theme="ice"] .bc-stat-cell,
+[data-theme="ice"] .bc-team-row,
+[data-theme="ice"] .bc-riser:not(.bc-riser-gold),
+[data-theme="ice"]
+  .bc-btn:not(.bc-btn-green):not(.bc-btn-gold):not(.bc-btn-danger) {
+  border-width: 2px;
+}
+
+/* Shell backdrop + GodRays readability veil follow the theme */
+.bc-shell-bg {
+  background-color: var(--bc-shell);
+}
+.bc-veil {
+  background-color: var(--bc-veil);
 }
 
 /* ---------- angled shapes ---------- */
@@ -24,7 +234,12 @@
       rgba(255, 255, 255, 0.28) 0%,
       rgba(255, 255, 255, 0) 45%
     ),
-    linear-gradient(180deg, #27467e 0%, #132747 60%, #0b1830 100%);
+    linear-gradient(
+      180deg,
+      var(--bc-trap-hi) 0%,
+      var(--bc-trap-mid) 60%,
+      var(--bc-trap-lo) 100%
+    );
   border: none;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   position: relative;
@@ -49,7 +264,12 @@
       rgba(255, 255, 255, 0.28) 0%,
       rgba(255, 255, 255, 0) 45%
     ),
-    linear-gradient(180deg, #27467e 0%, #132747 60%, #0b1830 100%);
+    linear-gradient(
+      180deg,
+      var(--bc-trap-hi) 0%,
+      var(--bc-trap-mid) 60%,
+      var(--bc-trap-lo) 100%
+    );
   border: none;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   position: relative;
@@ -74,8 +294,13 @@
       rgba(255, 255, 255, 0.22) 0%,
       rgba(255, 255, 255, 0) 40%
     ),
-    linear-gradient(180deg, #2c4a82 0%, #16294d 55%, #0c1930 100%);
-  border: 1px solid rgba(159, 176, 199, 0.55);
+    linear-gradient(
+      180deg,
+      var(--bc-para-hi) 0%,
+      var(--bc-para-mid) 55%,
+      var(--bc-para-lo) 100%
+    );
+  border: 1px solid rgba(var(--bc-line), 0.55);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -3px 6px rgba(0, 0, 0, 0.45),
@@ -94,8 +319,13 @@
       rgba(255, 255, 255, 0.22) 0%,
       rgba(255, 255, 255, 0) 40%
     ),
-    linear-gradient(180deg, #2c4a82 0%, #16294d 55%, #0c1930 100%);
-  border: 1px solid rgba(159, 176, 199, 0.55);
+    linear-gradient(
+      180deg,
+      var(--bc-para-hi) 0%,
+      var(--bc-para-mid) 55%,
+      var(--bc-para-lo) 100%
+    );
+  border: 1px solid rgba(var(--bc-line), 0.55);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -3px 6px rgba(0, 0, 0, 0.45),
@@ -126,8 +356,13 @@
       rgba(255, 255, 255, 0.025) 0 2px,
       rgba(0, 0, 0, 0) 2px 4px
     ),
-    linear-gradient(180deg, #22345a 0%, #141f3a 30%, #0d1730 100%);
-  border: 1px solid rgba(159, 176, 199, 0.35);
+    linear-gradient(
+      180deg,
+      var(--bc-panel-hi) 0%,
+      var(--bc-panel-mid) 30%,
+      var(--bc-panel-lo) 100%
+    );
+  border: 1px solid rgba(var(--bc-line), 0.35);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -8px 16px rgba(0, 0, 0, 0.4),
@@ -142,8 +377,12 @@
       rgba(255, 255, 255, 0.14) 0%,
       rgba(255, 255, 255, 0) 35%
     ),
-    linear-gradient(180deg, #0e1a36 0%, #16264a 100%);
-  border: 1px solid rgba(159, 176, 199, 0.4);
+    linear-gradient(
+      180deg,
+      var(--bc-stat-hi) 0%,
+      var(--bc-stat-lo) 100%
+    );
+  border: 1px solid rgba(var(--bc-line), 0.4);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.65),
     inset 0 -1px 0 rgba(255, 255, 255, 0.15),
@@ -159,8 +398,14 @@
       rgba(255, 255, 255, 0.35) 0%,
       rgba(255, 255, 255, 0) 45%
     ),
-    linear-gradient(180deg, #3f6dbe 0%, #23417e 55%, #152a56 100%);
-  border: 1px solid rgba(200, 216, 238, 0.6);
+    linear-gradient(
+      180deg,
+      var(--bc-btn-hi) 0%,
+      var(--bc-btn-mid) 55%,
+      var(--bc-btn-lo) 100%
+    );
+  border: 1px solid rgba(var(--bc-line), 0.6);
+  color: var(--bc-btn-text);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.5),
     0 4px 0 #0a1428,
@@ -284,8 +529,8 @@
       rgba(255, 255, 255, 0.1) 0%,
       rgba(255, 255, 255, 0) 40%
     ),
-    rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(159, 176, 199, 0.25);
+    var(--bc-row-bg);
+  border: 1px solid rgba(var(--bc-line), 0.25);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
     0 3px 8px rgba(0, 0, 0, 0.4);
@@ -402,7 +647,12 @@
       rgba(255, 255, 255, 0.025) 0 2px,
       rgba(0, 0, 0, 0) 2px 4px
     ),
-    linear-gradient(180deg, #22345a 0%, #141f3a 30%, #0d1730 100%);
+    linear-gradient(
+      180deg,
+      var(--bc-panel-hi) 0%,
+      var(--bc-panel-mid) 30%,
+      var(--bc-panel-lo) 100%
+    );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -8px 16px rgba(0, 0, 0, 0.4);
@@ -419,7 +669,12 @@
       rgba(255, 255, 255, 0.025) 0 2px,
       rgba(0, 0, 0, 0) 2px 4px
     ),
-    linear-gradient(180deg, #22345a 0%, #141f3a 30%, #0d1730 100%);
+    linear-gradient(
+      180deg,
+      var(--bc-panel-hi) 0%,
+      var(--bc-panel-mid) 30%,
+      var(--bc-panel-lo) 100%
+    );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -8px 16px rgba(0, 0, 0, 0.4);
@@ -497,12 +752,17 @@
       rgba(255, 255, 255, 0.22) 0%,
       rgba(255, 255, 255, 0) 35%
     ),
-    linear-gradient(180deg, #27467e 0%, #132747 55%, #0b1830 100%);
+    linear-gradient(
+      180deg,
+      var(--bc-trap-hi) 0%,
+      var(--bc-trap-mid) 55%,
+      var(--bc-trap-lo) 100%
+    );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 -6px 12px rgba(0, 0, 0, 0.45),
     0 12px 22px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(159, 176, 199, 0.4);
+  border: 1px solid rgba(var(--bc-line), 0.4);
   border-bottom: none;
 }
 .bc-riser-gold {

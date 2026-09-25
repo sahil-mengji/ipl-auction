@@ -37,6 +37,7 @@ model Player {
   finalPrice    Int       @default(0) @map("final_price")
   soldToTeamId  Int       @default(0) @map("sold_to_team_id")
   soldToTeam    String?   @map("sold_to_team")
+  auctionOrder  Int       @default(0) @map("auction_order")
   timeOfSelling DateTime? @map("time_of_selling")
   category      String?
   isOverseas    Boolean   @default(false) @map("is_overseas")
@@ -67,10 +68,19 @@ model AuctionState {
   @@map("AuctionState")
 }
 
+// Remote display prefs for the audience screen (key -> JSON value).
+// Survives server restarts; driven from /control over websockets.
+model DisplayPref {
+  key   String @id
+  value String
+
+  @@map("DisplayPref")
+}
+
 // Append-only event log for the dashboard's Logs view.
 model AuctionLog {
   id        Int      @id @default(autoincrement())
-  type      String   // BID | SOLD | UNSOLD | RESET_SALE | NEXT | START
+  type      String   // BID | SOLD | UNSOLD | RESET_SALE | NEXT | START | UNDO_BID | NUKE
   playerId  Int?     @map("player_id")
   teamId    Int?     @map("team_id")
   amount    Int?

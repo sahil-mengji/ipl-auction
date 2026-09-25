@@ -1,5 +1,9 @@
 /* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
 import GodRaysBg from "./GodRaysBg";
+
+const THEMES = ["broadcast", "ice"];
+const THEME_LABEL = { broadcast: "Broadcast", ice: "❄ Ice" };
 
 // Shared classic-auction template: video backdrop, heading,
 // and the 3-column layout (left / center / right).
@@ -12,15 +16,24 @@ export default function AuctionShell({
   right,
   topRight,
 }) {
+  const [theme, setTheme] = useState(
+    () => window.localStorage.getItem("ipl-theme") || "broadcast",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("ipl-theme", theme);
+  }, [theme]);
+  const cycleTheme = () =>
+    setTheme((t) => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length]);
   return (
-    <div className="min-h-screen bg-[#193153] text-white overflow-x-clip ">
+    <div className="min-h-screen bc-shell-bg text-white overflow-x-clip ">
       <GodRaysBg />
       {/* Backdrop pattern: above the bg, below all content, centered on the title */}
       <img
         src="pattern.svg"
         alt=""
         aria-hidden="true"
-        className="bc-spin-slow absolute left-1/2 top-20 z-[1] w-[50vw] opacity-30 pointer-events-none"
+        className="bc-spin-slow absolute left-1/2 top-24 z-[1] w-[50vw] opacity-30 pointer-events-none"
       />
       <img
         src="https://ecell.nitk.ac.in/navLogo.png"
@@ -28,7 +41,16 @@ export default function AuctionShell({
         className="w-40 absolute z-40 top-5 left-4"
       />
       {topRight && (
-        <div className="absolute z-40 bottom-4 left-4 flex gap-2">{topRight}</div>
+        <div className="absolute z-40 bottom-4 left-4 flex gap-2">
+          <button
+            onClick={cycleTheme}
+            className="bg-white/10 text-white text-xs px-3 py-1.5 rounded hover:bg-white/20"
+            title="Switch theme"
+          >
+            {THEME_LABEL[theme] ?? theme}
+          </button>
+          {topRight}
+        </div>
       )}
       <div className="relative z-10 ">
         <h1

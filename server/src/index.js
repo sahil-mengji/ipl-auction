@@ -1,10 +1,13 @@
 import "dotenv/config";
 import express from "express";
+import { createServer } from "http";
 import cors from "cors";
 import teamsRouter from "./routes/teams.js";
 import playersRouter from "./routes/players.js";
 import squadsRouter from "./routes/squads.js";
 import auctionRouter from "./routes/auction.js";
+import { prisma } from "./prisma.js";
+import { initSocket } from "./socket.js";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -15,6 +18,33 @@ app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "iplauction-server", time: new Date().toISOString() });
+});
+
+// DB-aware health for the control center: connectivity + row counts.
+// Reuses the shared prisma instance (no extra pool pressure).
+app.get("/api/health/db", async (_req, res) => {
+  const started = Date.now();
+  try {
+    const [ping, teams, players, logs, prefs] = await Promise.all([
+      prisma.$queryRaw`SELECT 1 AS ok`,
+      prisma.team.count(),
+      prisma.player.count(),
+      prisma.auctionLog.count(),
+      prisma.displayPref.count(),
+    ]);
+    res.json({
+      ok: true,
+      latencyMs: Date.now() - started,
+      database: Array.isArray(ping) ? "reachable" : "unknown",
+      teams,
+      players,
+      logs,
+      displayPrefs: prefs,
+      time: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: e.message });
+  }
 });
 
 app.use("/api/teams", teamsRouter);
@@ -35,7 +65,10 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: err?.message ?? "Internal server error" });
 });
 
-app.listen(PORT, () => {
+const httpServer = createServer(app);
+initSocket(httpServer, corsOrigin);
+
+httpServer.listen(PORT, () => {
   console.log(`iplauction-server listening on http://localhost:${PORT}`);
 });
 

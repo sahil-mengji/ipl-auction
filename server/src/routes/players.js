@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../prisma.js";
+import { broadcastInvalidate } from "../socket.js";
 
 const router = Router();
 
@@ -16,11 +17,14 @@ router.get("/", async (req, res, next) => {
     const status = String(req.query.status ?? "all").toLowerCase();
     const where =
       status === "unsold"
-        ? { soldToTeamId: 0 }
+        ? { soldToTeamId: { in: [0, -1] } }
         : status === "sold"
           ? { soldToTeamId: { notIn: [0, -1] } }
           : {};
-    const players = await prisma.player.findMany({ where, orderBy: { id: "asc" } });
+    const players = await prisma.player.findMany({
+      where,
+      orderBy: [{ auctionOrder: "asc" }, { id: "asc" }],
+    });
     res.json(players);
   } catch (err) {
     next(err);
@@ -69,13 +73,16 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-// POST /api/players — create (parity with insertSupabaseData)
+// POST /api/players — create (parity with insertSupabaseData).
+// New players join the back of the auction queue.
 router.post("/", async (req, res, next) => {
   try {
     const b = req.body ?? {};
+    const maxOrder = await prisma.player.aggregate({ _max: { auctionOrder: true } });
     const player = await prisma.player.create({
       data: {
         playerName: pick(b, ["playerName", "player_name"]),
+        auctionOrder: (maxOrder._max.auctionOrder ?? 0) + 1,
         playerImage: pick(b, ["playerImage", "player_image"]) ?? null,
         basePrice: pick(b, ["basePrice", "base_price"]) ?? 0,
         finalPrice: pick(b, ["finalPrice", "final_price"]) ?? 0,
@@ -132,6 +139,7 @@ router.patch("/:id/sold", async (req, res, next) => {
         timeOfSelling: finalPrice === 0 ? new Date("2000-01-01") : new Date(),
       },
     });
+    broadcastInvalidate({ sales: true, logs: true, players: true, teams: true });
     res.json(player);
   } catch (err) {
     if (err?.code === "P2025") return res.status(404).json({ error: "Player not found" });

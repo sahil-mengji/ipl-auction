@@ -1,8 +1,11 @@
 /* eslint-disable react/prop-types */
 import { formatPriceInLakhs } from "../pages/Page1/PlayerCard";
+import AnimatedNumber from "./AnimatedNumber";
 
-// Pick readable text for a team-colored background: dark text on bright
+// Readable text color for a team-colored background: dark text on bright
 // teams (e.g. CSK yellow), white text on dark teams (e.g. MI blue).
+export const teamTextColor = (color1) =>
+  hexLuminance(color1) > 0.45 ? "#1a1200" : "#ffffff";
 const hexLuminance = (hex) => {
   const h = String(hex ?? "").replace("#", "");
   if (h.length !== 6) return 0;
@@ -31,7 +34,7 @@ export default function CurrentBidWidget({
     : undefined;
   // Bright team bg -> dark text, dark team bg -> white text, no team -> gold default.
   const onTeam = teamColors
-    ? { color: hexLuminance(team.color1) > 0.45 ? "#1a1200" : "#ffffff" }
+    ? { color: teamTextColor(team.color1) }
     : undefined;
 
   return (
@@ -45,7 +48,12 @@ export default function CurrentBidWidget({
             Current bid
           </p>
           <p className="text-8xl font-extrabold whitespace-nowrap bc-emboss">
-            ₹{formatPriceInLakhs(amount)}
+            ₹
+            <AnimatedNumber
+              value={amount}
+              coin
+              format={(v) => formatPriceInLakhs(Math.round(v))}
+            />
           </p>
         </div>
       </div>

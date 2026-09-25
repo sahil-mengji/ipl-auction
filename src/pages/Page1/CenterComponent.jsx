@@ -12,6 +12,7 @@ import { fetchUnsoldPlayers } from "../../utils/getUnSoldPlayers";
 import { updatePurseOfTeam } from "../../utils/updateTeam";
 import AuctionShell from "../../components/AuctionShell";
 import CurrentBidWidget from "../../components/CurrentBidWidget";
+import { playBidPlaced, playTrumpet } from "../../utils/sound";
 
 const CenterComponent = ({ initteamlist, initplayersList }) => {
   const [isPlayerSold, setIsPlayerSold] = useState(false);
@@ -59,6 +60,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
 
   const markAsSold = async () => {
     setShowHammer(true);
+    playTrumpet();
     var player = playersList[0];
     const { id, final_price, sold_to_team_id, sold_to_team } = player;
     try {
@@ -152,6 +154,10 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [teamsList]);
 
+  // Bid cha-ching on every new paddle (silent on reset / mount).
+  useEffect(() => {
+    if (currentBid > 0) playBidPlaced();
+  }, [currentBid]);
   const centerPane = (
     <>
       {playersList.length > 0 && (
@@ -201,7 +207,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
   const rightPane = null;
 
   return (
-    <div className={`min-h-screen bg-[#193153]  text-white`}>
+    <div className={`min-h-screen bc-shell-bg  text-white`}>
       {!isPlayerSold && !showPlayerCard && (
         <>
           <CurrentBidWidget
@@ -221,7 +227,7 @@ const CenterComponent = ({ initteamlist, initplayersList }) => {
           topRight={
             <>
               <Link
-                to="/live"
+                to="/"
                 className="bg-white/10 text-white text-xs px-3 py-1.5 rounded hover:bg-white/20"
               >
                 Live
