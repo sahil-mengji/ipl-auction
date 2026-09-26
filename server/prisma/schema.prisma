@@ -57,12 +57,14 @@ model Player {
 // Live auction state (singleton row, id = 1). Shared by the control
 // dashboard (writer) and the audience view (reader) so both screens
 // stay in sync through the backend instead of local component state.
+// The live bid itself (amount/team while a lot is open) is NOT stored
+// here or anywhere in the database — it's ephemeral, kept only in the
+// browser (BroadcastChannel + localStorage) between /control and the
+// live screen. Only the final sale (on Player) is persisted.
 model AuctionState {
   id                Int      @id @default(1)
   status            String   @default("IDLE") // IDLE | BIDDING | SOLD
   currentPlayerId   Int?     @map("current_player_id")
-  currentBid        Int      @default(0) @map("current_bid")
-  currentBidderTeamId Int    @default(0) @map("current_bidder_team_id")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("AuctionState")
@@ -77,10 +79,11 @@ model DisplayPref {
   @@map("DisplayPref")
 }
 
-// Append-only event log for the dashboard's Logs view.
+// Append-only event log for the dashboard's Logs view. Individual bids are
+// never logged here on purpose — only lot-level events.
 model AuctionLog {
   id        Int      @id @default(autoincrement())
-  type      String   // BID | SOLD | UNSOLD | RESET_SALE | NEXT | START | UNDO_BID | NUKE
+  type      String   // SOLD | UNSOLD | RESET_SALE | NEXT | START | NUKE
   playerId  Int?     @map("player_id")
   teamId    Int?     @map("team_id")
   amount    Int?

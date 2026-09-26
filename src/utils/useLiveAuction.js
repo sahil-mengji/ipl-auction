@@ -8,6 +8,7 @@ import {
   getTeams,
 } from "./auctionApi";
 import { normalizeAuctionState } from "./backendApi";
+import { readBid, subscribeBid } from "./liveBid";
 
 // Live auction data over websockets — replaces 2s polling.
 // options: { sales, logs, players, salesLimit, logsLimit }
@@ -121,6 +122,19 @@ export const useLiveAuction = (options = {}) => {
     refreshLogs,
     refreshPlayers,
   };
+};
+
+// The running bid while a lot is open — never touches the backend, just
+// BroadcastChannel/localStorage between /control and the live screen on
+// the same browser (see utils/liveBid.js). `forPlayerId` scopes it: a bid
+// for a different (stale) lot reads as empty instead of showing carry-over.
+export const useLiveBid = (forPlayerId) => {
+  const [bid, setBid] = useState(readBid);
+  useEffect(() => subscribeBid(setBid), []);
+  if (forPlayerId != null && bid.playerId !== forPlayerId) {
+    return { playerId: null, amount: 0, teamId: null, team: null, ts: 0 };
+  }
+  return bid;
 };
 
 // Remote display prefs for the audience screen (driven from /control).

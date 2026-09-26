@@ -10,7 +10,8 @@ import PlayerOrder from "./PlayerOrder";
 import { fetchPrevPlayer } from "../utils/previousPlayer.js";
 import { fetchUnsoldPlayers } from "../utils/getUnSoldPlayers";
 import { emitSocket, getSocket } from "../utils/socket";
-import { useDisplay, useLiveAuction } from "../utils/useLiveAuction";
+import { useDisplay, useLiveAuction, useLiveBid } from "../utils/useLiveAuction";
+import { clearBid, publishBid } from "../utils/liveBid";
 import { playBidPlaced, playTrumpet } from "../utils/sound";
 import {
   formatPrice,
@@ -19,10 +20,8 @@ import {
   markLotUnsold,
   nextLot,
   nukeDatabase,
-  placeBid,
   resetSale,
   startLot,
-  undoLastBid,
 } from "../utils/auctionApi";
 
 const TABS = [
@@ -353,6 +352,18 @@ export default function ControlDashboard() {
   const status = state?.status ?? "IDLE";
   const bidding = status === "BIDDING";
 
+  // The running bid: never sent to / read from the server. Set here and
+  // broadcast over BroadcastChannel + localStorage (utils/liveBid.js) so
+  // the live screen picks it up instantly when open on the same browser.
+  const liveBid = useLiveBid(player?.id ?? null);
+  // Ephemeral undo stack for the CURRENT lot only — in-memory, cleared on a
+  // new lot or page refresh. Bids are never logged/persisted, so "undo"
+  // only reaches back as far as this session remembers.
+  const bidHistory = useRef([]);
+  useEffect(() => {
+    bidHistory.current = [];
+  }, [player?.id]);
+
   const run = async (fn, okMsg) => {
     setBusy(true);
     setError(null);
@@ -364,8 +375,10 @@ export default function ControlDashboard() {
       // Socket invalidate echoes back too — belt and suspenders.
       refreshSales();
       refreshLogs();
+      return s;
     } catch (e) {
       setError(e.message);
+      return null;
     } finally {
       setBusy(false);
     }
@@ -375,7 +388,7 @@ export default function ControlDashboard() {
   const prevLive = useRef({ bid: 0, status: "IDLE", playerId: null });
   useEffect(() => {
     const p = prevLive.current;
-    const b = Number(state?.current_bid ?? 0);
+    const b = Number(liveBid.amount ?? 0);
     const st = state?.status ?? "IDLE";
     const sameLot = state?.player?.id === p.playerId;
     if (sameLot && b > p.bid) playBidPlaced();
@@ -383,53 +396,72 @@ export default function ControlDashboard() {
       playTrumpet();
     }
     prevLive.current = { bid: b, status: st, playerId: state?.player?.id };
-  }, [state, display.trumpet]);
+  }, [state, liveBid.amount, display.trumpet]);
 
   // Fresh lists whenever the Logs tab opens.
   useEffect(() => {
     if (tab === "Logs") refreshLogs();
   }, [tab, refreshLogs]);
 
-  const currentBid = Number(state?.current_bid ?? 0);
+  const currentBid = Number(liveBid.amount ?? 0);
   const basePrice = Number(player?.base_price ?? 0);
-  // Floor: beat the live bid, or at least meet base on a fresh lot.
-  const minBid = currentBid > 0 ? currentBid + 1 : basePrice;
+  // Floor is always the base price — the auctioneer can freely move the
+  // price up or down (correcting a mistake, walking a team back) as long
+  // as it never drops below what the player is worth.
+  const minBid = basePrice;
 
-  const setCustomBid = () => {
+  // Live-publishes on every change — team pick, +/- bump, or raw typing —
+  // no "set bid" click needed. Whatever's in the price field/team selection
+  // is what the live screen shows, instantly, over BroadcastChannel +
+  // localStorage (see utils/liveBid.js). Skips a publish that doesn't
+  // change anything so the undo stack isn't spammed on re-renders.
+  useEffect(() => {
+    if (!bidding || !player || !customTeam) return;
     const amount = Number(customAmount);
-    if (!customTeam) {
-      setError("Pick a team for the custom bid.");
+    // Never below base price — otherwise any amount goes, including under
+    // the current live bid (lets the auctioneer walk a mistaken bid back).
+    if (!Number.isInteger(amount) || amount <= 0 || amount < basePrice) return;
+    const team = teams.find((t) => String(t.id) === String(customTeam)) ?? null;
+    if (!team) return;
+    if (
+      liveBid.playerId === player.id &&
+      liveBid.amount === amount &&
+      liveBid.teamId === team.id
+    ) {
       return;
     }
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setError("Enter a whole-number bid in Lakh.");
-      return;
+    bidHistory.current.push(liveBid);
+    publishBid({ playerId: player.id, amount, teamId: team.id, team });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customAmount, customTeam, bidding, player?.id]);
+
+  const undoLastBid = () => {
+    const prevBid = bidHistory.current.pop();
+    if (prevBid) {
+      publishBid(prevBid);
+    } else {
+      clearBid(player?.id ?? null);
     }
-    if (amount < minBid) {
-      setError(
-        currentBid > 0
-          ? `Bid must beat the current ₹${formatPrice(currentBid)}.`
-          : `First bid must meet the ₹${formatPrice(basePrice)} base price.`,
-      );
-      return;
-    }
-    run(() => placeBid(Number(customTeam), amount), `Custom bid ₹${amount}L recorded`);
+    setNotice("Last bid undone");
   };
 
   // Custom price field tracks the live bid until the auctioneer types:
   // reset to base on a new lot, follow the current bid while untouched.
   const [priceDirty, setPriceDirty] = useState(false);
   useEffect(() => {
-    setCustomAmount(String(player?.base_price ?? state?.current_bid ?? "") || "");
+    // A reload mid-lot still has the live bid in localStorage — restore the
+    // team pick from it instead of blanking a bid that's already live.
+    const restore = player && liveBid.playerId === player.id && liveBid.teamId;
+    setCustomAmount(String((restore ? liveBid.amount : player?.base_price) ?? "") || "");
     setPriceDirty(false);
-    setCustomTeam("");
+    setCustomTeam(restore ? String(liveBid.teamId) : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player?.id]);
   useEffect(() => {
     if (!priceDirty) {
-      setCustomAmount(String(state?.current_bid || player?.base_price || ""));
+      setCustomAmount(String(liveBid.amount || player?.base_price || ""));
     }
-  }, [state?.current_bid, player?.base_price, priceDirty]);
+  }, [liveBid.amount, player?.base_price, priceDirty]);
 
   // Most recent sale first — powers "Undo last sale".
   const latestSale = (sales ?? [])
@@ -456,21 +488,30 @@ export default function ControlDashboard() {
     setPriceDirty(true);
     setCustomAmount((prev) => {
       const next =
-        (Number(prev) || state?.current_bid || player?.base_price || 0) + step;
+        (Number(prev) || liveBid.amount || player?.base_price || 0) + step;
       return String(Math.max(next, minBid || 0));
     });
   };
 
-  // Number-key team selection: 1-9 pick teams 1-9, 0 picks team 10.
+  // Number-key team selection (1-9 / 0) plus +/- for a quick ±25L bump.
   // Skipped while typing in the price field.
   useEffect(() => {
     const onKey = (e) => {
       if (busy || !bidding) return;
-      if (!/^[0-9]$/.test(e.key)) return;
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      const idx = e.key === "0" ? 9 : Number(e.key) - 1;
-      if (idx < teams.length) setCustomTeam(String(teams[idx].id));
+      if (/^[0-9]$/.test(e.key)) {
+        const idx = e.key === "0" ? 9 : Number(e.key) - 1;
+        if (idx < teams.length) setCustomTeam(String(teams[idx].id));
+        return;
+      }
+      if (e.key === "+" || e.key === "=") {
+        bumpAmount(25);
+        return;
+      }
+      if (e.key === "-" || e.key === "_") {
+        bumpAmount(-25);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -513,14 +554,14 @@ export default function ControlDashboard() {
         <p className="text-6xl font-extrabold bc-gold-text leading-none">
           ₹
           <AnimatedNumber
-            value={state?.current_bid ?? 0}
+            value={liveBid.amount ?? 0}
             coin
             format={(v) => formatPrice(Math.round(v))}
           />
         </p>
-        {state?.bidding_team && (
+        {liveBid.team && (
           <p className="text-sm font-bold text-white/80 mt-1">
-            with {state.bidding_team.team_name}
+            with {liveBid.team.team_name}
           </p>
         )}
       </div>
@@ -750,7 +791,7 @@ export default function ControlDashboard() {
                   setCustomAmount(e.target.value);
                   setPriceDirty(true);
                 }}
-                placeholder={`e.g. ${(state?.current_bid ?? 0) + 20 || player?.base_price || 200}`}
+                placeholder={`e.g. ${(liveBid.amount ?? 0) + 20 || player?.base_price || 200}`}
                 className="w-full mb-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm text-white placeholder-white/30"
               />
               <p className="text-[11px] text-white/40 mb-3">
@@ -758,17 +799,13 @@ export default function ControlDashboard() {
               </p>
               <div className="flex gap-2 mb-2">
                 {[
-                  { step: 1, label: "+1L" },
-                  { step: 2, label: "+2L" },
-                  { step: 3, label: "+3L" },
-                  { step: 5, label: "+5L" },
-                  { step: 10, label: "+10L" },
+                  { step: 25, label: "+25L" },
                   { step: 50, label: "+50L" },
                   { step: 100, label: "+1Cr" },
                 ].map(({ step, label }) => (
                   <button
                     key={label}
-                    title={`${label === "+1Cr" ? "1 Crore" : `${step} lakh`}`}
+                    title={`${label === "+1Cr" ? "1 Crore" : `${step} lakh`} (keyboard: +)`}
                     disabled={busy || !bidding}
                     onClick={() => bumpAmount(step)}
                     className="flex-1 rounded-lg border border-white/15 px-2 py-2 text-sm font-extrabold hover:border-yellow-300 disabled:opacity-40"
@@ -779,17 +816,13 @@ export default function ControlDashboard() {
               </div>
               <div className="flex gap-2 mb-3">
                 {[
-                  { step: 1, label: "-1L" },
-                  { step: 2, label: "-2L" },
-                  { step: 3, label: "-3L" },
-                  { step: 5, label: "-5L" },
-                  { step: 10, label: "-10L" },
+                  { step: 25, label: "-25L" },
                   { step: 50, label: "-50L" },
                   { step: 100, label: "-1Cr" },
                 ].map(({ step, label }) => (
                   <button
                     key={label}
-                    title={`Minus ${label === "-1Cr" ? "1 Crore" : `${step} lakh`}`}
+                    title={`Minus ${label === "-1Cr" ? "1 Crore" : `${step} lakh`} (keyboard: -)`}
                     disabled={busy || !bidding}
                     onClick={() => bumpAmount(-step)}
                     className="flex-1 rounded-lg border border-white/15 px-2 py-2 text-sm font-extrabold hover:border-red-400 disabled:opacity-40"
@@ -798,14 +831,9 @@ export default function ControlDashboard() {
                   </button>
                 ))}
               </div>
-              <MetalButton
-                tone="gold"
-                disabled={busy || !bidding}
-                onClick={setCustomBid}
-                className="w-full"
-              >
-                Set bid
-              </MetalButton>
+              <p className="text-center text-[11px] text-white/40 uppercase tracking-wide">
+                Live on / — no button needed, updates as you type
+              </p>
               {Number(customAmount) > 0 && (
                 <p className="mt-2 text-sm text-center">
                   {Number(customAmount) >= minBid ? (
@@ -826,8 +854,8 @@ export default function ControlDashboard() {
                 </p>
               )}
               <p className="mt-3 text-xs text-white/50">
-                Current: ₹{formatPrice(state?.current_bid ?? 0)}
-                {state?.bidding_team ? ` (${state.bidding_team.team_name})` : ""} · Base: ₹
+                Current: ₹{formatPrice(liveBid.amount ?? 0)}
+                {liveBid.team ? ` (${liveBid.team.team_name})` : ""} · Base: ₹
                 {formatPrice(player?.base_price ?? 0)}
               </p>
             </section>
@@ -842,10 +870,13 @@ export default function ControlDashboard() {
           </div>
           <MetalButton
             tone="green"
-            disabled={busy || !bidding || (state?.current_bid ?? 0) <= 0}
+            disabled={busy || !bidding || currentBid <= 0 || !liveBid.teamId}
             onClick={() => {
               setLotResolved(true);
-              run(() => hammerSold(), "Player SOLD — visible on /live");
+              run(
+                () => hammerSold(liveBid.teamId, currentBid),
+                "Player SOLD — visible on /live",
+              ).then(() => clearBid());
             }}
           >
             Mark as sold
@@ -855,6 +886,7 @@ export default function ControlDashboard() {
             disabled={busy || !player || status === "IDLE"}
             onClick={() => {
               setLotResolved(true);
+              clearBid();
               run(() => markLotUnsold(), "Marked unsold");
             }}
           >
@@ -865,6 +897,7 @@ export default function ControlDashboard() {
               disabled={busy || status === "BIDDING"}
               onClick={() => {
                 setLotResolved(false);
+                clearBid();
                 run(() => nextLot(), "Ready for next lot");
               }}
             >
@@ -876,7 +909,7 @@ export default function ControlDashboard() {
               disabled={busy || bidding}
               onClick={() => {
                 setLotResolved(false);
-                run(() => startLot(), "Bidding opened");
+                run(() => startLot(), "Bidding opened").then((s) => clearBid(s?.player?.id ?? null));
               }}
             >
               Start next player
@@ -884,8 +917,8 @@ export default function ControlDashboard() {
           )}
           <span className="flex-1" />
           <MetalButton
-            disabled={busy || !bidding || (state?.current_bid ?? 0) <= 0}
-            onClick={() => run(() => undoLastBid(), "Last bid undone")}
+            disabled={busy || !bidding || currentBid <= 0}
+            onClick={undoLastBid}
           >
             Undo bid
           </MetalButton>

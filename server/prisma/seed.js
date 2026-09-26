@@ -70,10 +70,8 @@ async function main() {
     update: {
       status: "IDLE",
       currentPlayerId: null,
-      currentBid: 0,
-      currentBidderTeamId: 0,
     },
-    create: { id: 1, status: "IDLE", currentBid: 0, currentBidderTeamId: 0 },
+    create: { id: 1, status: "IDLE" },
   });
 
   const [teamCount, playerCount] = await Promise.all([

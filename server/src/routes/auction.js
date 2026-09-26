@@ -4,21 +4,11 @@ import { broadcastInvalidate, broadcastState } from "../socket.js";
 
 const router = Router();
 
-// Same bid ladder the old keyboard UI used, now enforced server-side so the
-// control dashboard and audience view always agree.
-export const nextBidFor = (prevBid, basePrice) => {
-  if (prevBid === 0) return basePrice;
-  if (prevBid === 150) return prevBid + 10;
-  if (prevBid < 100) return prevBid + 10;
-  if (prevBid < 500) return prevBid + 20;
-  return prevBid + 25;
-};
-
 const getOrCreateState = () =>
   prisma.auctionState.upsert({
     where: { id: 1 },
     update: {},
-    create: { id: 1, status: "IDLE", currentBid: 0, currentBidderTeamId: 0 },
+    create: { id: 1, status: "IDLE" },
   });
 
 const log = (type, { playerId = null, teamId = null, amount = null, message = null } = {}) =>
@@ -42,21 +32,17 @@ const findNextPlayer = async (cursor) =>
     orderBy: [{ auctionOrder: "asc" }, { id: "asc" }],
   }));
 
-// Enriched state payload: state + current player + bidding team, so both
-// screens render with a single request.
+// Enriched state payload: state + current + next player, so both screens
+// render with a single request. The live bid itself isn't part of this —
+// it never touches the backend (see schema.prisma note on AuctionState).
 const enrichedState = async () => {
   const state = await getOrCreateState();
-  const [player, team] = await Promise.all([
-    state.currentPlayerId
-      ? prisma.player.findUnique({ where: { id: state.currentPlayerId } })
-      : null,
-    state.currentBidderTeamId > 0
-      ? prisma.team.findUnique({ where: { id: state.currentBidderTeamId } })
-      : null,
-  ]);
+  const player = state.currentPlayerId
+    ? await prisma.player.findUnique({ where: { id: state.currentPlayerId } })
+    : null;
   const cursor = await getCursor();
   const nextPlayer = await findNextPlayer(cursor);
-  return { ...state, player, biddingTeam: team, queueCursor: cursor, nextPlayer };
+  return { ...state, player, queueCursor: cursor, nextPlayer };
 };
 
 // GET /api/auction/state — live state for audience + control screens
@@ -108,8 +94,8 @@ router.post("/start", async (req, res, next) => {
     await setCursor(player.auctionOrder);
     await prisma.auctionState.upsert({
       where: { id: 1 },
-      update: { status: "BIDDING", currentPlayerId: player.id, currentBid: 0, currentBidderTeamId: 0 },
-      create: { id: 1, status: "BIDDING", currentPlayerId: player.id, currentBid: 0, currentBidderTeamId: 0 },
+      update: { status: "BIDDING", currentPlayerId: player.id },
+      create: { id: 1, status: "BIDDING", currentPlayerId: player.id },
     });
     await log("START", { playerId: player.id, message: `Bidding opened for ${player.playerName}` });
     await changed({ logs: true });
@@ -119,17 +105,23 @@ router.post("/start", async (req, res, next) => {
   }
 });
 
-// POST /api/auction/bid { teamId, amount? } — ladder bid for a team, or a
-// custom bid when `amount` is given (must beat the current bid).
-router.post("/bid", async (req, res, next) => {
+// POST /api/auction/sold { teamId, amount } — hammer down: persist the sale
+// + deduct purse. The winning team/amount are passed in directly from the
+// control dashboard's own (unpersisted) live bid — the backend never
+// tracked the running bid, so it can't read it back off state.
+router.post("/sold", async (req, res, next) => {
   try {
     const teamId = Number(req.body?.teamId ?? req.body?.team_id);
+    const amount = Number(req.body?.amount);
     if (!Number.isInteger(teamId) || teamId <= 0) {
       return res.status(400).json({ error: "`teamId` must be a positive integer" });
     }
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return res.status(400).json({ error: "`amount` must be a positive whole number (Lakh)" });
+    }
     const state = await getOrCreateState();
     if (state.status !== "BIDDING" || state.currentPlayerId == null) {
-      return res.status(400).json({ error: "No active bidding. Start a lot first." });
+      return res.status(400).json({ error: "No active bidding to close" });
     }
     const [player, team] = await Promise.all([
       prisma.player.findUnique({ where: { id: state.currentPlayerId } }),
@@ -139,98 +131,10 @@ router.post("/bid", async (req, res, next) => {
       return res.status(400).json({ error: "Current player is no longer available" });
     }
     if (!team) return res.status(404).json({ error: "Team not found" });
-    let bid;
-    if (req.body?.amount != null && req.body.amount !== "") {
-      bid = Number(req.body.amount);
-      if (!Number.isInteger(bid) || bid <= 0) {
-        return res.status(400).json({ error: "`amount` must be a positive whole number (Lakh)" });
-      }
-      if (bid < player.basePrice) {
-        return res.status(400).json({ error: `Bid ₹${bid}L is below base price ₹${player.basePrice}L` });
-      }
-      if (bid <= state.currentBid) {
-        return res.status(400).json({ error: `Bid ₹${bid}L must beat current ₹${state.currentBid}L` });
-      }
-    } else {
-      bid = nextBidFor(state.currentBid, player.basePrice);
+    if (amount < player.basePrice) {
+      return res.status(400).json({ error: `Sale price ₹${amount}L is below base price ₹${player.basePrice}L` });
     }
-    if (bid > team.purse) {
-      return res.status(400).json({ error: `${team.teamName} purse (₹${team.purse}L) too low for ₹${bid}L bid` });
-    }
-    await prisma.auctionState.update({
-      where: { id: 1 },
-      data: { currentBid: bid, currentBidderTeamId: teamId },
-    });
-    await log("BID", {
-      playerId: player.id,
-      teamId,
-      amount: bid,
-      message: `${team.teamName} bid ₹${bid}L for ${player.playerName}`,
-    });
-    await changed({ logs: true });
-    res.json(await enrichedState());
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/auction/undo-bid — retract the latest BID on the current lot:
-// state falls back to the previous BID (or no bid if it was the first).
-// Append-only: the retracted bid stays in the log, stamped with UNDO_BID.
-router.post("/undo-bid", async (_req, res, next) => {
-  try {
-    const state = await getOrCreateState();
-    if (state.status !== "BIDDING" || state.currentPlayerId == null) {
-      return res.status(400).json({ error: "No active bidding to undo" });
-    }
-    const bids = await prisma.auctionLog.findMany({
-      where: { type: "BID", playerId: state.currentPlayerId },
-      orderBy: { id: "desc" },
-      take: 2,
-    });
-    if (bids.length === 0) {
-      return res.status(400).json({ error: "No bids to undo on this lot" });
-    }
-    const [undone, prev] = bids;
-    await prisma.auctionState.update({
-      where: { id: 1 },
-      data: { currentBid: prev?.amount ?? 0, currentBidderTeamId: prev?.teamId ?? 0 },
-    });
-    const team = undone.teamId
-      ? await prisma.team.findUnique({ where: { id: undone.teamId } })
-      : null;
-    await log("UNDO_BID", {
-      playerId: state.currentPlayerId,
-      teamId: undone.teamId,
-      amount: undone.amount,
-      message: `Undid ${team?.teamName ?? "team"}'s ₹${undone.amount}L bid`,
-    });
-    await changed({ logs: true });
-    res.json(await enrichedState());
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/auction/sold — hammer down: persist sale + deduct purse.
-router.post("/sold", async (_req, res, next) => {
-  try {
-    const state = await getOrCreateState();
-    if (state.status !== "BIDDING" || state.currentPlayerId == null) {
-      return res.status(400).json({ error: "No active bidding to close" });
-    }
-    if (state.currentBid <= 0 || state.currentBidderTeamId <= 0) {
-      return res.status(400).json({ error: "No bids placed yet" });
-    }
-    const [player, team] = await Promise.all([
-      prisma.player.findUnique({ where: { id: state.currentPlayerId } }),
-      prisma.team.findUnique({ where: { id: state.currentBidderTeamId } }),
-    ]);
-    if (!player || player.soldToTeamId > 0) {
-      return res.status(400).json({ error: "Current player is no longer available" });
-    }
-    if (!team) return res.status(404).json({ error: "Bidding team not found" });
-    if (team.purse < state.currentBid) {
+    if (team.purse < amount) {
       return res.status(400).json({ error: `${team.teamName} purse too low for final bid` });
     }
     const now = new Date();
@@ -238,20 +142,20 @@ router.post("/sold", async (_req, res, next) => {
       prisma.player.update({
         where: { id: player.id },
         data: {
-          finalPrice: state.currentBid,
+          finalPrice: amount,
           soldToTeamId: team.id,
           soldToTeam: team.teamName,
           timeOfSelling: now,
         },
       }),
-      prisma.team.update({ where: { id: team.id }, data: { purse: team.purse - state.currentBid } }),
+      prisma.team.update({ where: { id: team.id }, data: { purse: team.purse - amount } }),
       prisma.auctionState.update({ where: { id: 1 }, data: { status: "SOLD" } }),
     ]);
     await log("SOLD", {
       playerId: player.id,
       teamId: team.id,
-      amount: state.currentBid,
-      message: `${player.playerName} SOLD to ${team.teamName} for ₹${state.currentBid}L`,
+      amount,
+      message: `${player.playerName} SOLD to ${team.teamName} for ₹${amount}L`,
     });
     await changed({ sales: true, logs: true, players: true, teams: true });
     res.json(await enrichedState());
@@ -284,7 +188,7 @@ router.post("/unsold", async (_req, res, next) => {
     }
     await prisma.auctionState.update({
       where: { id: 1 },
-      data: { status: "IDLE", currentPlayerId: null, currentBid: 0, currentBidderTeamId: 0 },
+      data: { status: "IDLE", currentPlayerId: null },
     });
     await log("UNSOLD", {
       playerId: state.currentPlayerId,
@@ -402,7 +306,7 @@ router.post("/next", async (_req, res, next) => {
   try {
     await prisma.auctionState.update({
       where: { id: 1 },
-      data: { status: "IDLE", currentPlayerId: null, currentBid: 0, currentBidderTeamId: 0 },
+      data: { status: "IDLE", currentPlayerId: null },
     });
     await log("NEXT", { message: "Moved to next lot" });
     await changed({ logs: true });
@@ -446,7 +350,7 @@ router.post("/reset-sale", async (req, res, next) => {
     if (state.currentPlayerId === player.id) {
       await prisma.auctionState.update({
         where: { id: 1 },
-        data: { status: "IDLE", currentPlayerId: null, currentBid: 0, currentBidderTeamId: 0 },
+        data: { status: "IDLE", currentPlayerId: null },
       });
     }
     await log("RESET_SALE", {
@@ -492,8 +396,8 @@ router.post("/nuke", async (req, res, next) => {
     ]);
     await prisma.auctionState.upsert({
       where: { id: 1 },
-      update: { status: "IDLE", currentPlayerId: null, currentBid: 0, currentBidderTeamId: 0 },
-      create: { id: 1, status: "IDLE", currentBid: 0, currentBidderTeamId: 0 },
+      update: { status: "IDLE", currentPlayerId: null },
+      create: { id: 1, status: "IDLE" },
     });
     await log("NUKE", {
       message: `Database nuked: ${sold.length} sale(s) reset, purses refunded`,

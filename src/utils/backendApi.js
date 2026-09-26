@@ -61,8 +61,9 @@ export const normalizeLog = (l) =>
         created_at: l.createdAt ?? l.created_at ?? null,
       };
 
-// Auction-state payload normalised the same way: snake_case keys,
-// nested player + bidding team.
+// Auction-state payload normalised the same way: snake_case keys, nested
+// player. The running bid isn't part of server state at all (see
+// utils/liveBid.js) — it never leaves the browser.
 export const normalizeAuctionState = (s) =>
   s == null
     ? s
@@ -70,11 +71,8 @@ export const normalizeAuctionState = (s) =>
         id: s.id,
         status: s.status,
         current_player_id: s.currentPlayerId ?? s.current_player_id ?? null,
-        current_bid: s.currentBid ?? s.current_bid ?? 0,
-        current_bidder_team_id: s.currentBidderTeamId ?? s.current_bidder_team_id ?? 0,
         updated_at: s.updatedAt ?? s.updated_at ?? null,
         player: normalizePlayer(s.player ?? null),
-        bidding_team: normalizeTeam(s.biddingTeam ?? s.bidding_team ?? null),
         queue_cursor: s.queueCursor ?? s.queue_cursor ?? -1,
         next_player: normalizePlayer(s.nextPlayer ?? s.next_player ?? null),
       };

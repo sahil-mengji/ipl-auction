@@ -13,15 +13,10 @@ const hexLuminance = (hex) => {
   return 0.2126 * c(0) + 0.7152 * c(2) + 0.0722 * c(4);
 };
 
-// Fixed top-right broadcast widget: big current-bid parallelogram, the
-// bidding-team ticket in that team's own colors ("by …"), plus the last few
-// bids as plain unobtrusive text underneath. Rendered by `/`, `/live` and
-// `/control`. Hides itself when there is no active bid.
-export default function CurrentBidWidget({
-  bid = 0,
-  team = null,
-  recentBids = [],
-}) {
+// Fixed top-right broadcast widget: big current-bid parallelogram plus the
+// bidding-team ticket in that team's own colors ("by …"). Rendered by `/`,
+// `/live` and `/control`. Hides itself when there is no active bid.
+export default function CurrentBidWidget({ bid = 0, team = null }) {
   const amount = Number(bid ?? 0);
   if (!team && amount <= 0) return null;
   const name = team?.team_name ?? team?.name ?? null;
@@ -68,15 +63,6 @@ export default function CurrentBidWidget({
           </p>
         </div>
       )}
-      {(recentBids ?? []).slice(0, 3).map((b, i) => (
-        <p
-          key={`${b.amount}-${i}`}
-          className="text-[28px] leading-tight text-white/70"
-        >
-          ₹{formatPriceInLakhs(b.amount)}{" "}
-          <span className="opacity-70">· {b.teamName}</span>
-        </p>
-      ))}
     </div>
   );
 }

@@ -10,8 +10,7 @@ import TimerPage from "./TimerPage";
 import BudgetGraph from "./BudgetGraph";
 import { PlayerHero } from "./Page1/PlayerCard";
 import { formatPriceInLakhs } from "./Page1/PlayerCard";
-import { recentBidsBefore } from "../utils/auctionApi";
-import { useDisplay, useLiveAuction } from "../utils/useLiveAuction";
+import { useDisplay, useLiveAuction, useLiveBid } from "../utils/useLiveAuction";
 import { playBidPlaced, playTrumpet } from "../utils/sound";
 
 // Read-only big-screen view for the audience, on the same classic template:
@@ -24,7 +23,7 @@ const CYCLE_VIEWS = ["chart", "squads", "break"];
 const CYCLE_MS = 10000;
 
 export default function AudienceView() {
-  const { state, teams, logs, error } = useLiveAuction({ logs: true });
+  const { state, error } = useLiveAuction();
   const display = useDisplay();
   const [showStamp, setShowStamp] = useState(false);
   const [cycleIdx, setCycleIdx] = useState(0);
@@ -32,7 +31,17 @@ export default function AudienceView() {
 
   const player = state?.player ?? null;
   const status = state?.status ?? "IDLE";
-  const bid = Number(state?.current_bid ?? 0);
+  const liveBid = useLiveBid(player?.id ?? null);
+  // Once SOLD, the winning price/team are persisted on the player row —
+  // use those instead of the (now cleared) live-bid channel so a screen
+  // that (re)loads mid-celebration still shows the right numbers.
+  const bid = status === "SOLD" ? Number(player?.final_price ?? 0) : Number(liveBid.amount ?? 0);
+  const biddingTeam =
+    status === "SOLD"
+      ? player?.sold_to_team
+        ? { team_name: player.sold_to_team }
+        : null
+      : liveBid.team;
 
   useEffect(() => {
     const p = prev.current;
@@ -61,7 +70,7 @@ export default function AudienceView() {
     <PlayerHero
       player={player}
       showHammer={false}
-      currentBidder={state?.bidding_team?.team_name ?? null}
+      currentBidder={biddingTeam?.team_name ?? null}
       showPlayerCard={status === "SOLD"}
       docked
     />
@@ -101,7 +110,7 @@ export default function AudienceView() {
               Sold
             </p>
             <p className="text-2xl font-extrabold uppercase tracking-wide mt-2 text-[#1a1200]">
-              {player?.player_name} to {state?.bidding_team?.team_name} for ₹
+              {player?.player_name} to {biddingTeam?.team_name} for ₹
               {formatPriceInLakhs(bid)}
             </p>
           </div>
@@ -114,16 +123,7 @@ export default function AudienceView() {
         />
       )}
       {display.showWidget && (
-        <CurrentBidWidget
-          bid={bid}
-          team={state?.bidding_team ?? null}
-          recentBids={recentBidsBefore(
-            logs,
-            teams,
-            state?.player?.id,
-            state?.current_bid,
-          )}
-        />
+        <CurrentBidWidget bid={bid} team={biddingTeam} />
       )}
       <AuctionShell
       title="IPL MOCK AUCTION — LIVE"
